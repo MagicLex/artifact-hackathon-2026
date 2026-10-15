@@ -6,11 +6,16 @@ Nothing since Thu 15 Oct, 17:14: both jobs below were cancelled. The image and t
 
 When running, one Slurm job in the reservation `pdl18409_oct2026`: vLLM in an Apptainer image, serving `RedHatAI/GLM-5.3-Flash-NVFP4` on two GB200 as `glm-5.3-flash`, port 8000 on the compute node. Compute nodes are reachable only from inside the cluster, so access goes through ssh and an API key.
 
-| | Path on DALIA |
-|---|---|
-| Scripts, image, logs | `/lustre/work/pdl18409/<login>/vllm` |
-| Weights (185 GiB) | `/lustre/work/pdl18409/<login>/cache_huggingface` |
-| Node name and key, group-readable | `/lustre/work/pdl18409/shared/vllm` |
+Everything is in one folder, `/lustre/work/pdl18409/shared/vllm`, read and write for the group `pdl18409`. The scripts set `umask 007`, so files they create keep that.
+
+| | Path on DALIA | Size |
+|---|---|---|
+| Scripts | `/lustre/work/pdl18409/shared/vllm/vllm_{serve,pull,download}.sh` | |
+| Image | `/lustre/work/pdl18409/shared/vllm/vllm-glm53-flash.sif` | 7.7 GiB |
+| Weights | `/lustre/work/pdl18409/shared/vllm/cache_huggingface` | 185 GiB |
+| Image build cache | `/lustre/work/pdl18409/shared/vllm/cache_apptainer` | |
+| Logs | `/lustre/work/pdl18409/shared/vllm/slurm_logs` | |
+| Node name, API key | `/lustre/work/pdl18409/shared/vllm/{node,api_key}` | |
 
 ## Schedule
 
@@ -21,19 +26,19 @@ A job is capped at 2 days, so the server is a chain of jobs, each starting when 
 | 151655 | Tue 13 Oct, 17:36 | Thu 15 Oct, 17:14, cancelled |
 | 151656 | never started | Thu 15 Oct, 17:14, cancelled |
 
-Each start takes 11 minutes before the model answers. The node can change at each start; the job rewrites `shared/vllm/node`. The key is kept.
+Each start takes 11 minutes before the model answers. The node can change at each start; the job rewrites `node`. The key is kept.
 
 ## Commands
 
-From `/lustre/work/pdl18409/<login>/vllm`:
+From `/lustre/work/pdl18409/shared/vllm`, by any member of the group:
 
 ```bash
-squeue -u $USER                                  # state, node, time left
+squeue -n vllm_serve                             # state, node, time left, who started it
 tail -f slurm_logs/vllm_serve_<job>.err          # startup and requests
-scancel <job>                                    # stop
+scancel <job>                                    # stop (only the member who started it)
 sbatch --time=2-00:00:00 vllm_serve.sh           # start
 sbatch --dependency=afterany:<job> --time=22:00:00 vllm_serve.sh   # chain the next one
-rm /lustre/work/pdl18409/shared/vllm/api_key     # new key at the next start
+rm api_key                                       # new key at the next start
 ```
 
 First install, once:
